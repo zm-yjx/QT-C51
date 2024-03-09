@@ -1,0 +1,242 @@
+C51 COMPILER V9.54   MAIN1                                                                 09/14/2023 11:03:45 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN1
+OBJECT MODULE PLACED IN .\Objects\main1.obj
+COMPILER INVOKED BY: F:\C51\BIN\C51.EXE main1.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main1.lst) 
+                    -TABS(2) OBJECT(.\Objects\main1.obj)
+
+line level    source
+
+   1          #include <regx52.h>
+   2          #include <stdlib.h>
+   3          #include <stdio.h>
+   4          #include <string.h>
+   5          #include "LCD1602.h"
+   6          #include "ds18b20.h"
+   7          
+   8          unsigned char To[]="END";//反馈给上位机的信息
+   9          
+  10          unsigned int n,flag;//定义发送结束标志位
+  11          
+  12          unsigned char receiveData;//设置读取串口数据的变量
+  13          unsigned char AA[]="?!";
+  14          
+  15          int key=0;//定义标志位放置，预防数据反复录入
+  16          char numkey[4];//预放置数据位置
+  17          char lownum[4];//最低温度
+  18          char highnum[4];//最高温度
+  19          
+  20          sbit buzzer = P1^5;//定义蜂鸣器IO口
+  21          
+  22          int res;//高温
+  23          int res2;//低温
+  24          float T;//存放单片机读取温度数据
+  25          
+  26          int i,j;
+  27          int i1,j1;//定义循环参数
+  28          
+  29          void delay_1ms(int c){ 
+  30   1        char a,b;
+  31   1        for(;c>0;c--)
+  32   1        { 
+  33   2          for(b=199;b>0;b--) 
+  34   2          { 
+  35   3            for(a=1;a>0;a--);
+  36   3          }
+  37   2        }
+  38   1      }//延时函数
+  39          
+  40          void UsartConfiguration()
+  41          {
+  42   1        SCON=0X50;      
+  43   1        TMOD=0X20;      
+  44   1        PCON=0X80;      
+  45   1        TH1=0XF3;       
+  46   1        TL1=0XF3;
+  47   1        //REN=1;
+  48   1        ES=1;           
+  49   1        EA=1;           
+  50   1        TR1=1;              
+  51   1      }//串口通信函数配置
+  52          
+  53          void Usart() interrupt 4
+  54          {   
+C51 COMPILER V9.54   MAIN1                                                                 09/14/2023 11:03:45 PAGE 2   
+
+  55   1          RI=0;
+  56   1          receiveData=SBUF;//以字符形式接受数据
+  57   1          SBUF=receiveData; 
+  58   1          while(!TI);     
+  59   1          TI=0;
+  60   1          if(receiveData!='H'||receiveData!='L')
+  61   1          {
+  62   2             numkey[key]=receiveData;
+  63   2          }
+  64   1         
+  65   1          key++;//！  
+  66   1          
+  67   1          if(receiveData=='H'||receiveData=='L')//当接受到上位机发送数据含有特殊字符时进行数据分类‘H’是高温，‘L
+             -’是低温
+  68   1          {     
+  69   2            if(receiveData=='L')
+  70   2            {
+  71   3              for(i=0;i<4;i++)
+  72   3              {
+  73   4                lownum[i]='\0';
+  74   4              }
+  75   3              j=key-1;
+  76   3              for(i=0;i<key-1;i++)
+  77   3              {
+  78   4                lownum[i]=numkey[key-1-j];      
+  79   4                j--;
+  80   4              }
+  81   3              for(i=0;i<4;i++)
+  82   3              {
+  83   4                numkey[i]='\0';
+  84   4              }
+  85   3              
+  86   3              key=0;
+  87   3      
+  88   3                res2=atof(lownum);//将得到的数据统一格式进行比较
+  89   3                if(res2>T)
+  90   3                {
+  91   4                  LCD_ShowChar(2,1,'e');
+  92   4                  LCD_ShowChar(2,2,'r');
+  93   4                  LCD_ShowChar(2,3,'r');
+  94   4                  LCD_ShowChar(2,4,'o');
+  95   4                  LCD_ShowChar(2,5,'r');
+  96   4                  LCD_ShowChar(2,6,'!');
+  97   4                  delay_1ms(1000);
+  98   4                  
+  99   4                  for(i=0;i<10;i++)
+ 100   4                  {
+ 101   5                    buzzer=1;
+ 102   5                    delay_1ms(5000);
+ 103   5                    buzzer=0;
+ 104   5                  }//蜂鸣器
+ 105   4                                                        
+ 106   4                }
+ 107   3                else
+ 108   3                {
+ 109   4                  LCD_ShowChar(2,1,'n');
+ 110   4                  LCD_ShowChar(2,2,'o');
+ 111   4                  LCD_ShowChar(2,3,'r');
+ 112   4                  LCD_ShowChar(2,4,'m');
+ 113   4                  LCD_ShowChar(2,5,'a');
+ 114   4                  LCD_ShowChar(2,6,'l');
+ 115   4                  LCD_ShowChar(2,7,'!');
+C51 COMPILER V9.54   MAIN1                                                                 09/14/2023 11:03:45 PAGE 3   
+
+ 116   4                  delay_1ms(1000);
+ 117   4                }//低温异常判断         
+ 118   3            }   
+ 119   2            else if(receiveData=='H')
+ 120   2            {
+ 121   3              for(i=0;i<4;i++)
+ 122   3              {
+ 123   4                highnum[i]='\0';
+ 124   4              }
+ 125   3              j=key-1;
+ 126   3              for(i=0;i<key-1;i++)
+ 127   3              {
+ 128   4                highnum[i]=numkey[key-1-j];
+ 129   4                j--;
+ 130   4              }
+ 131   3              for(i=0;i<4;i++)
+ 132   3              {
+ 133   4                numkey[i]='\0';
+ 134   4              }
+ 135   3              key=0;
+ 136   3                res=atof(highnum);//将得到的数据统一格式进行比较
+ 137   3                if(res<T)
+ 138   3                {
+ 139   4                  LCD_ShowChar(2,1,'e');
+ 140   4                  LCD_ShowChar(2,2,'r');
+ 141   4                  LCD_ShowChar(2,3,'r');
+ 142   4                  LCD_ShowChar(2,4,'o');
+ 143   4                  LCD_ShowChar(2,5,'r');
+ 144   4                  LCD_ShowChar(2,6,'!');
+ 145   4                  delay_1ms(1000);
+ 146   4                                
+ 147   4                    for(i=0;i<10;i++)
+ 148   4                    {
+ 149   5                      buzzer=1;
+ 150   5                      delay_1ms(5000);
+ 151   5                      buzzer=0;
+ 152   5                    }//蜂鸣器   
+ 153   4                    
+ 154   4                }
+ 155   3                else
+ 156   3                {
+ 157   4                  LCD_ShowChar(2,1,'n');
+ 158   4                  LCD_ShowChar(2,2,'o');
+ 159   4                  LCD_ShowChar(2,3,'r');
+ 160   4                  LCD_ShowChar(2,4,'m');
+ 161   4                  LCD_ShowChar(2,5,'a');
+ 162   4                  LCD_ShowChar(2,6,'l');
+ 163   4                  LCD_ShowChar(2,7,'!');
+ 164   4                  delay_1ms(1000);
+ 165   4                }//高温异常判断       
+ 166   3            }   
+ 167   2          } 
+ 168   1                
+ 169   1        if(receiveData=='H'||receiveData=='L')  
+ 170   1            {
+ 171   2            SBUF=AA[1];
+ 172   2            while(!TI);    
+ 173   2            TI=0;           
+ 174   2              for(i=0;i<9;i++)
+ 175   2              {
+ 176   3                      ES=0;          
+ 177   3                      SBUF=To[i];//返回数据到上位机         
+C51 COMPILER V9.54   MAIN1                                                                 09/14/2023 11:03:45 PAGE 4   
+
+ 178   3                      while(!TI);//等待数据发送完成    
+ 179   3                      TI=0;
+ 180   3              }
+ 181   2              //ES=1;    
+ 182   2            }   
+ 183   1      }//串口通讯函数(中断函数)
+ 184          
+ 185          void main()
+ 186          {
+ 187   1        LCD_Init();
+ 188   1        LCD_ShowChar(1,1,'T');
+ 189   1        LCD_ShowChar(1,2,'e');
+ 190   1        LCD_ShowChar(1,3,'m');
+ 191   1        LCD_ShowChar(1,4,'p');
+ 192   1        LCD_ShowChar(1,5,':');
+ 193   1        while(1)
+ 194   1        {   
+ 195   2          DS18B20_ConverT();
+ 196   2          T=DS18B20_readT();    
+ 197   2          if(T<0)
+ 198   2          {
+ 199   3           LCD_ShowChar(1,6,'-');
+ 200   3           T=-T;
+ 201   3          }
+ 202   2          else
+ 203   2          {
+ 204   3           LCD_ShowChar(1,6,'+');
+ 205   3          }
+ 206   2          LCD_ShowNum(1,7,T,3);
+ 207   2          LCD_ShowChar(1,10,'.');
+ 208   2          LCD_ShowNum(1,11,(unsigned long)(T*10000)%10000,2);
+ 209   2          UsartConfiguration();//调用串口通信的中断函数 
+ 210   2        }//死循环持续执行该程序段
+ 211   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1062    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     42    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
